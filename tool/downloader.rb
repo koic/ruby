@@ -51,7 +51,7 @@ class Downloader
   class GNU < self
     def self.download(name, *rest)
       if https?
-        super("https://raw.githubusercontent.com/gcc-mirror/gcc/master/#{name}", name, *rest)
+        super("file:///tmp/#{name}", name, *rest)
       else
         super("https://repo.or.cz/official-gcc.git/blob_plain/HEAD:/#{name}", name, *rest)
       end
@@ -161,7 +161,11 @@ class Downloader
       $stdout.flush
     end
     begin
-      data = url.read(options.merge(http_options(file, since.nil? ? true : since)))
+      data = if url.to_s.start_with?('file:')
+               File.read(url.path.gsub('file:', ''))
+             else
+               url.read(options.merge(http_options(file, since.nil? ? true : since)))
+             end
     rescue OpenURI::HTTPError => http_error
       if http_error.message =~ /^304 / # 304 Not Modified
         if $VERBOSE
@@ -190,7 +194,7 @@ class Downloader
     dest.open("wb", 0600) do |f|
       f.write(data)
       f.chmod(mode_for(data))
-      mtime = data.meta["last-modified"]
+      mtime = data.meta["last-modified"] unless url.to_s.start_with?('file:')
     end
     if mtime
       mtime = Time.httpdate(mtime)
